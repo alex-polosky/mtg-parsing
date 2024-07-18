@@ -1,0 +1,67 @@
+name: template
+
+services:
+  # TODO: separate out database service into separate compose file
+  _db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: "db"
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5499:5432"
+    volumes:
+      - ./db/col/postgres/:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microservices
+
+  _api:
+    build:
+      context: src
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./src:/code
+    ports:
+      - "8999:8000"
+    env_file: .env
+    networks:
+      - microservices
+
+  _api_test:
+    profiles:
+      - test
+    # better to extend _api or just use different defs?
+    build:
+      context: src
+      dockerfile: Dockerfile
+    working_dir: /
+    command: pytest --color=yes -vv
+    volumes:
+      - ./src:/code
+      - ./test:/test
+      - ./pytest.ini:/pytest.ini
+    env_file: .env
+    networks:
+      - microservices
+
+  # TODO: implement [angular|react] front-end
+  # _web:
+  #   build:
+  #     context: web
+  #     dockerfile: Dockerfile
+  #   volumes:
+  #     - ./web:/app
+  #   ports:
+  #     - "8089:80"
+  #   networks:
+  #     - microservices
+
+networks:
+  microservices:
+    name: microservices

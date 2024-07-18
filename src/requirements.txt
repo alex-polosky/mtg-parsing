@@ -1,0 +1,16 @@
+# Console preference
+ipython~=8.25
+colorlog~=6.8
+
+cryptography~=42.0
+cffi~=1.16
+
+django~=5.0
+djangorestframework~=3.15
+
+psycopg~=3.1
+
+pytest~=8.2
+pytest-django~=4.8
+
+gunicorn~=22.0
