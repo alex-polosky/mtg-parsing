@@ -7,6 +7,9 @@ from mtg_types.abilities import abilities
 from mtg_types.keywords import keywords
 from mtg_types.types_ import types, super_types, card_types, role_tokens
 
+# FORCE_WRITE_REGEX_BIN = os.environ.get('FORCE_WRITE_REGEX_BIN', False)
+FORCE_WRITE_REGEX_BIN = True
+
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'))
 DATA_REGEX = os.path.join(DATA_DIR, 'bin', 'regex.bin')
 DATA_REGEX_MD5 = '0c37e7e18a7edd3c9bdcaefba1f318b0'
@@ -71,7 +74,7 @@ CONTRACTIONS = {
 
 
 # I implemented this because loading all of these regexs was taking more than several minutes
-if not os.path.exists(DATA_REGEX):
+if FORCE_WRITE_REGEX_BIN or not os.path.exists(DATA_REGEX):
     def escape_re(s):
         for z in '\\.+*?^$()[]{}|':
             s = s.replace(z, f'\\{z}')
@@ -116,7 +119,18 @@ if not os.path.exists(DATA_REGEX):
         ROLES = re.compile(rf'\b(?:{"|".join(role_tokens)})\b(?= role token)', re.IGNORECASE)
         POSSESSIVE = re.compile(r'''(?<!it|It)'(?:s| )\b''')
         ENERGY_TOKEN = re.compile(r'''(?:ENERGY)+''')
+        QUANTITY = re.compile(r'''\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\w+teen|twenty)\b''')
+        NUMBER_MOD = re.compile(r'''\b(?:less than|fewer than|greater than|more than|or less|or fewer|or more)\b''')
         # CAP_WORDS = re.compile(r'(?<!^)(?<!: )(?<!\. )(?<!— )(?<!• )[A-Z][a-z]+')
+        # less than
+        # fewer than
+        # greater than
+        # more than
+        # -
+        # or less
+        # or fewer
+        # or greater
+        # or more
 
     _ = {}
     for k, r in vars(RE).items():
@@ -126,8 +140,14 @@ if not os.path.exists(DATA_REGEX):
     _redump = pickle.dumps(_)
     from hashlib import md5 as _md5
     _hash = _md5(_redump).hexdigest()
-    assert _hash == DATA_REGEX_MD5
     os.makedirs(os.path.dirname(DATA_REGEX), exist_ok=True)
+    try:
+        assert _hash == DATA_REGEX_MD5
+    except:
+        if not FORCE_WRITE_REGEX_BIN:
+            raise
+        with open(DATA_REGEX + '.md5', 'w') as f:
+            f.write(_hash)
     with open(DATA_REGEX, 'wb') as f:
         f.write(_redump)
 
@@ -150,6 +170,14 @@ def generalize_oracle(oracle_text: str, count_i: int):
 
     if card[-1] == '.':
         card = card[:-1]
+
+    # Remove the dot if there
+    if '•' in card:
+        card = card[2:]
+
+    # Treat ~1 as ~
+    if '~1' in card:
+        card = card.replace('~1', '~')
 
     # Make the text parsable by NLTK
     for k, v in CONTRACTIONS.items():
@@ -261,6 +289,8 @@ def generalize_oracle(oracle_text: str, count_i: int):
     while (match := RE.NAMED.search(card)):
         card = card[:match.start(0)] + 'CARD_NAME' + card[match.end(0):]
 
+    # Convert out counters
+
     # Convert out named keywords / abilities
     for replace, regex_patterns in RE.ABILITY_PATTERNS.items():
         for regex_pattern in regex_patterns:
@@ -304,8 +334,6 @@ def generalize_oracle(oracle_text: str, count_i: int):
     while (match := RE.SUPER_TYPES.search(card)):
         card = card[:match.start(0)] + 'SUPER_TYPE' + card[match.end(0):]
 
-    # Convert out counters
-
     # Get rid of capital letters for start of sentences
     # This is specifically done after implicits but before named cards
     # if not '—' in card:
@@ -317,6 +345,11 @@ def generalize_oracle(oracle_text: str, count_i: int):
         card = card[:match.start(0)] + 'DIGIT' + card[match.end(0):]
 
     # Convert out named numbers (one, two, etc)
+    while (match := RE.QUANTITY.search(card)):
+        card = card[:match.start(0)] + 'QUANTITY' + card[match.end(0):]
+
+    while (match := RE.NUMBER_MOD.search(card)):
+        card = card[:match.start(0)] + 'NUMBER_MOD' + card[match.end(0):]
 
     # Fix possesives
     while (match := RE.POSSESSIVE.search(card)):
@@ -326,6 +359,18 @@ def generalize_oracle(oracle_text: str, count_i: int):
     if (match := RE.ENERGY_TOKEN.search(card)):
         card = card[:match.start(0)] + 'ENERGY' + card[match.end(0):]
 
+    # Parse out colors
+    # non
+    # -
+    # white
+    # blue
+    # black
+    # red
+    # green
+    # =
+    # monocolored
+    # multicolored
+    # colorless
 
     # These are specific rules that we need to convert
     if card in (
@@ -335,7 +380,7 @@ def generalize_oracle(oracle_text: str, count_i: int):
         card = '_'.join([x.upper() for x in card.split()])
 
     # Lowercase the first word if necessary
-    # This approach is not exhaustive
+    # This approach is not exhaustive, and needs work but I feel that it's the best approach
     # for splitter in ':—|':
     #     pieces = card.split(splitter)
     #     for piece in pieces:
@@ -361,30 +406,19 @@ def generalize_oracle(oracle_text: str, count_i: int):
 
 
 def main():
+    DECIMATE_THE_DECIMAL = True
+    SORT_AND_FILTER = True
+
     with open(DATA_FILE_ORACLE) as f:
         data = [
             generalize_oracle(text, i)
             for i, oracle_text in enumerate(f.read().split('\n'))
             if oracle_text
-            for text in oracle_text.split('. ')
+            for text in (oracle_text.split('. ') if DECIMATE_THE_DECIMAL else [oracle_text])
         ]
 
-    # DECIMATE_THE_DECIMAL = True
-    # if DECIMATE_THE_DECIMAL:
-    #     _ = []
-    #     for x in data:
-    #         for y in x.split('. '):
-    #             _.append(y)
-    #     data = _
-
-    SORT_AND_FILTER = True
     if SORT_AND_FILTER:
-        _ = []
-        for x in data:
-            if x not in _:
-                _.append(x)
-        _.sort()
-        data = _
+        data = sorted(list(set(data)))
 
     with open(DATA_FILE_OUT, 'w') as f:
         for x in data:
