@@ -1,39 +1,49 @@
-name: template
+name: mtg
 
 services:
   # TODO: separate out database service into separate compose file
-  _db:
+  db:
+    user: $DOCKER_USER
     image: postgres:16
     environment:
       POSTGRES_DB: "db"
       POSTGRES_HOST_AUTH_METHOD: "trust"
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5499:5432"
+      - "5497:5432"
     volumes:
-      - ./db/col/postgres/:/var/lib/postgresql/data
+      - ./data/db/mtg/postgres/:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 3
     networks:
-      - microservices
+      - mtg
 
-  _api:
+  api:
+    user: $DOCKER_USER
     build:
       context: src
       dockerfile: Dockerfile
+      args:
+        DOCKER_USER: $DOCKER_USER
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
+      - ./data:/opt/mtg/data
+      - /opt/mtg/data/db/
       - ./src:/code
+      - ./scripts:/opt/mtg/scripts
     ports:
-      - "8999:8000"
+      - "8998:8000"
     env_file: .env
+    environment:
+      - DATA_DIR=/opt/mtg/data
     networks:
-      - microservices
+      - mtg
 
-  _api_test:
+  api-test:
+    user: $DOCKER_USER
     profiles:
       - test
     # better to extend _api or just use different defs?
@@ -48,7 +58,7 @@ services:
       - ./pytest.ini:/pytest.ini
     env_file: .env
     networks:
-      - microservices
+      - mtg
 
   # TODO: implement [angular|react] front-end
   # _web:
@@ -63,5 +73,5 @@ services:
   #     - microservices
 
 networks:
-  microservices:
-    name: microservices
+  mtg:
+    name: mtg
