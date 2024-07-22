@@ -12,9 +12,11 @@ FORCE_WRITE_REGEX_BIN = True
 
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'))
 DATA_REGEX = os.path.join(DATA_DIR, 'bin', 'regex.bin')
-DATA_REGEX_MD5 = '0c37e7e18a7edd3c9bdcaefba1f318b0'
+DATA_REGEX_MD5 = 'e8aa015534ba5598ecc4f7ba4f8313f2'
 DATA_FILE_ORACLE = os.path.join(DATA_DIR, 'out', 'oracle_only.txt')
-DATA_FILE_NAME = os.path.join(DATA_DIR, 'out', 'name_only.txt')
+# DATA_FILE_NAME = os.path.join(DATA_DIR, 'out', 'name_only.txt')
+DATA_FILE_NAME = os.path.join(DATA_DIR, 'scryfall', 'oracle-names.txt')
+DATA_FILE_NAME_TOKENS = os.path.join(DATA_DIR, 'scryfall', 'oracle-legend-token-names.txt')
 DATA_FILE_OUT = os.path.join(DATA_DIR, 'out', 'oracle_generalized.txt')
 
 CONTRACTIONS = {
@@ -85,7 +87,13 @@ if FORCE_WRITE_REGEX_BIN or not os.path.exists(DATA_REGEX):
         NAMES = [
             escape_re(x)
             for x in f.read().split('\n')
-            if x and len(x.split()) > 1
+            if x # and len(x.split()) > 1
+        ]
+    with open(DATA_FILE_NAME_TOKENS) as f:
+        NAMES += [
+            escape_re(x)
+            for x in f.read().split('\n')
+            if x # and len(x.split()) > 1
         ]
 
     class RE:
@@ -108,7 +116,8 @@ if FORCE_WRITE_REGEX_BIN or not os.path.exists(DATA_REGEX):
         PT_MOD = re.compile(r'(?:\+|-){1}(?:\d{1,3}|\*|X|Y)\/(?:\+|-){1}(?:\d{1,3}|\*|X|Y)')
         D20 = re.compile(r'^(?:\d+|\d+ — \d+) \|')
         BASIC_DIGITS = re.compile(r'\b(?<!~)\d+\b')
-        NAMED = re.compile(rf'\b(?:{"|".join(NAMES)})\b', re.IGNORECASE)
+        # NAMED = re.compile(rf'\b(?:{"|".join(NAMES)})\b', re.IGNORECASE)
+        NAMED = re.compile(rf'\b(?:card|named|into)\b \b({"|".join(NAMES)})\b', re.IGNORECASE)
         SUB_TYPES = re.compile(rf'\b(?:non|non-)?(?:{'|'.join([
             escape_re(sub_type)
             for subs in types.values()
@@ -121,16 +130,9 @@ if FORCE_WRITE_REGEX_BIN or not os.path.exists(DATA_REGEX):
         ENERGY_TOKEN = re.compile(r'''(?:ENERGY)+''')
         QUANTITY = re.compile(r'''\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\w+teen|twenty)\b''')
         NUMBER_MOD = re.compile(r'''\b(?:less than|fewer than|greater than|more than|or less|or fewer|or more)\b''')
+        COLOR_QUAL = re.compile(r'''((?:non)?(?:white|blue|black|red|green)(?:(?:, |,? and | and | or )(?:white|blue|black|red|green)){0,4}|colorless|monocolored|multicolored|all colors)''')
+        COUNTERS = re.compile(r'''((?:[+|-]\d+/[+|-]\d+|\b\w+\b)(?<!\ba\b) counters?)\b(?! target)''')
         # CAP_WORDS = re.compile(r'(?<!^)(?<!: )(?<!\. )(?<!— )(?<!• )[A-Z][a-z]+')
-        # less than
-        # fewer than
-        # greater than
-        # more than
-        # -
-        # or less
-        # or fewer
-        # or greater
-        # or more
 
     _ = {}
     for k, r in vars(RE).items():
@@ -179,6 +181,12 @@ def generalize_oracle(oracle_text: str, count_i: int):
     if '~1' in card:
         card = card.replace('~1', '~')
 
+    # This fixes some naming issues further down the line
+    if 'Keeper of ~' in oracle_text:
+        card = card.replace('Keeper of ~', 'Keeper of Kookus')
+    if 'Kobolds of ~' in oracle_text:
+        card = card.replace('named Kobolds of ~', 'named Kobolds of Kher Keep')
+
     # Make the text parsable by NLTK
     for k, v in CONTRACTIONS.items():
         if k in card:
@@ -188,6 +196,8 @@ def generalize_oracle(oracle_text: str, count_i: int):
     for k,v in {
         '"legend rule"': 'LEGEND_RULE',
         '"bands with other"': 'BANDS_WITH_OTHER',
+        'The monarch': 'THE_MONARCH',
+        'the monarch': 'THE_MONARCH',
     }.items():
         if k in card:
             card = card.replace(k,v)
@@ -285,11 +295,14 @@ def generalize_oracle(oracle_text: str, count_i: int):
     while (match := RE.PT_MOD.search(card)):
         card = card[:match.start(0)] + 'PT_MOD' + card[match.end(0):]
 
-    # Convert out named cards
+    # Convert out named cards (this ends up failing for "Kher Keep" and "Kookus")
     while (match := RE.NAMED.search(card)):
-        card = card[:match.start(0)] + 'CARD_NAME' + card[match.end(0):]
+        card = card[:match.start(1)] + f'CARD_NAME' + card[match.end(1):]
+        # card = card[:match.start(0)] + f'CARD_NAME(Z{match.group()}Z)' + card[match.end(0):]
 
     # Convert out counters
+    while (match := RE.COUNTERS.search(card)):
+        card = card[:match.start(0)] + 'COUNTER_TYPE' + card[match.end(0):]
 
     # Convert out named keywords / abilities
     for replace, regex_patterns in RE.ABILITY_PATTERNS.items():
@@ -348,6 +361,7 @@ def generalize_oracle(oracle_text: str, count_i: int):
     while (match := RE.QUANTITY.search(card)):
         card = card[:match.start(0)] + 'QUANTITY' + card[match.end(0):]
 
+    # Convert out number mods
     while (match := RE.NUMBER_MOD.search(card)):
         card = card[:match.start(0)] + 'NUMBER_MOD' + card[match.end(0):]
 
@@ -360,17 +374,8 @@ def generalize_oracle(oracle_text: str, count_i: int):
         card = card[:match.start(0)] + 'ENERGY' + card[match.end(0):]
 
     # Parse out colors
-    # non
-    # -
-    # white
-    # blue
-    # black
-    # red
-    # green
-    # =
-    # monocolored
-    # multicolored
-    # colorless
+    while (match := RE.COLOR_QUAL.search(card)):
+        card = card[:match.start(0)] + 'COLOR_QUAL' + card[match.end(0):]
 
     # These are specific rules that we need to convert
     if card in (
@@ -421,8 +426,7 @@ def main():
         data = sorted(list(set(data)))
 
     with open(DATA_FILE_OUT, 'w') as f:
-        for x in data:
-            f.write(x + '\n')
+        f.write('\n'.join(data))
 
 if __name__ == '__main__':
     main()

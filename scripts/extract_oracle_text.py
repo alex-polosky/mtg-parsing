@@ -9,10 +9,13 @@ DATA_FILE_OUT_ORACLE = os.path.join(DATA_DIR, 'out', 'oracle_only.txt')
 DATA_FILE_OUT_NAME = os.path.join(DATA_DIR, 'out', 'name_only.txt')
 
 IGNORE_NAMES = [
+    "Core Set 2019 Checklist",
     "Turntimber Symbiosis // Turntimber, Serpentine Wood",
     "Kolvori, God of Kinship // The Ringhart Crest",
     "Invasion of Kaldheim // Pyre of the World Tree",
-    "A-Cauldron Familiar"
+    "A-Cauldron Familiar",
+
+    "Boris Devilboon"
 ]
 
 CONTRACTIONS = {
@@ -70,6 +73,10 @@ CONTRACTIONS = {
     "it's": "it is"
 }
 
+CARD_NAME_REPLACES = {
+    'King Darien XLVIII': 'King Darien'
+}
+
 def alter_oracle(card):
     if not card:
         return
@@ -84,14 +91,20 @@ def alter_oracle(card):
 
     to_parse = card['oracle']
 
-    name = card.get('card')
+    card_name = card['name']
 
-    for i, name in enumerate(card['name'].split(' // ')):
+    for i, name in enumerate(card_name.split(' // ')):
         to_parse = to_parse.replace(name[2:] if name.startswith('A-') else name, f'~{i if i else ""}')
+
+    for i, name in enumerate(card_name.split(' // ')):
         if ',' in name:
             to_parse = to_parse.replace(
                 name.split(',')[0][2:] if name.startswith('A-') else name.split(',')[0], f'~{i if i else ""}'
             )
+
+    # These are specifics because why
+    if card_name in CARD_NAME_REPLACES.keys():
+        to_parse = to_parse.replace(CARD_NAME_REPLACES[card_name][2:] if CARD_NAME_REPLACES[card_name].startswith('A-') else CARD_NAME_REPLACES[card_name], '~')
 
     if 'A-~' in to_parse:
         to_parse = to_parse.replace('A-~', '~')
@@ -165,19 +178,16 @@ def main():
         data = [alter_oracle(json.loads(x)) for x in f.read().split('\n') if x]
 
     with open(DATA_FILE_OUT_ORACLE, 'w') as f:
-        for x in data:
-            if not x:
-                continue
-            if x['name'] in IGNORE_NAMES:
-                continue
-            for y in x['oracle']:
-                f.write(y + '\n')
+        f.write('\n'.join([
+            y
+            for x in data
+            if x and not x['name'] in IGNORE_NAMES
+            for y in x['oracle']
+        ]))
 
-    names = [x['card'] for x in data if x]
-    names.sort()
+    names = sorted(list(set([x['card'] for x in data if x and 'token' not in x['type'].split(' — ')[0].lower()])))
     with open(DATA_FILE_OUT_NAME, 'w') as f:
-        for x in names:
-            f.write(x + '\n')
+        f.write('\n'.join(names))
 
 if __name__ == '__main__':
     main()

@@ -4,12 +4,23 @@
 
 ## Order of scripts
 
+### Required before running -anything-
+
 1. fetch_scryfall
+1. convert_scryfall_objs
+1. get_cards_per_set
+
+### For analysis
+
 1. ingest_es
 1. pull_oracle_cards
 1. extract_oracle_text
 1. generalize_oracle_text
 1. piece_out_oracle_text
+
+### For parsing
+
+
 
 ## Setup
 

@@ -5,8 +5,8 @@ from elasticsearch import Elasticsearch
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'))
 DATA_FILE_OUT = os.path.join(DATA_DIR, 'out', 'oracles_text.ndjson')
 
-ELASTIC_HOST = os.environ.get('ELASTIC_HOST')
-KIBANA_HOST = os.environ.get('KIBANA_HOST')
+ELASTIC_HOST = os.environ.get('ELASTIC_HOST', 'http://localhost:9200')
+KIBANA_HOST = os.environ.get('KIBANA_HOST', 'http://localhost:5601')
 ELASTIC_INDEX = os.environ.get('ES_INDEX_MTG')
 
 
@@ -34,6 +34,20 @@ query = {
           "match": {
             "set_type.keyword": {
               "query": "commander"
+            }
+          }
+        },
+        {
+          "match": {
+            "set_type.keyword": {
+              "query": "token"
+            }
+          }
+        },
+        {
+          "match": {
+            "set_type.keyword": {
+              "query": "masters"
             }
           }
         }
@@ -97,10 +111,7 @@ def main():
 
     os.makedirs(os.path.dirname(DATA_FILE_OUT), exist_ok=True)
     with open(DATA_FILE_OUT, 'w') as f:
-        for card in oracle_texts:
-            if card['name'] in malformed:
-                continue
-            f.write(json.dumps(card) + '\n')
+        f.write('\n'.join([json.dumps(card) for card in oracle_texts if not card['name'] in malformed]))
 
 
 if __name__ == '__main__':

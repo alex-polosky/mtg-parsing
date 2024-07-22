@@ -39,6 +39,8 @@ services:
     env_file: .env
     environment:
       - DATA_DIR=/opt/mtg/data
+      - ELASTIC_HOST='http://host.docker.internal:9200'
+      - KIBANA_HOST='http://host.docker.internal:5601'
     networks:
       - mtg
 

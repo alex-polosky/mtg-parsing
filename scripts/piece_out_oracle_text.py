@@ -25,27 +25,14 @@ def main():
         if not cost in costs: costs.append(cost)
         if not oracle in oracles: oracles.append(oracle)
 
-    abilities.sort()
-    costs.sort()
-    oracles.sort()
-
     with open(DATA_FILE_ABILITY_OUT, 'w') as f:
-        for x in abilities:
-            if not x:
-                continue
-            f.write(x + '\n')
+        f.write('\n'.join([x for x in sorted(abilities) if x]))
 
     with open(DATA_FILE_COST_OUT, 'w') as f:
-        for x in costs:
-            if not x:
-                continue
-            f.write(x + '\n')
+        f.write('\n'.join([x for x in sorted(costs) if x]))
 
     with open(DATA_FILE_ORACLE_OUT, 'w') as f:
-        for x in oracles:
-            if not x:
-                continue
-            f.write(x + '\n')
+        f.write('\n'.join([x for x in sorted(oracles) if x]))
 
 if __name__ == '__main__':
     main()
