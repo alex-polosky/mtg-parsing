@@ -2,3 +2,6 @@ data/
 db/
 .antlr/
 _wb/
+__pycache__/
+*.pyc
+*.pyo
