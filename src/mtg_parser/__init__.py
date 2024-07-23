@@ -1,10 +1,7 @@
 import re
 from types import FrameType
 from nltk.tokenize import word_tokenize
-from utils import file_ops
-from .scryfall_card import ScryfallCard
-
-BASE_DIR = file_ops.DATA_DIR
+from utils.scryfall_card import ScryfallCard
 
 CONTRACTIONS = {
     "aren't": "are not",
@@ -223,7 +220,7 @@ def oracle_parser(card: ScryfallCard, face_i: int = 0):
 
 def add_ex(frame: FrameType, depth: int):
     return {
-        f'code{depth}': f'{frame.f_code.co_filename.replace(BASE_DIR, '')}:{frame.f_code.co_name}:{frame.f_lineno}',
+        f'code{depth}': f'{frame.f_code.co_filename}:{frame.f_code.co_name}:{frame.f_lineno}',
     }
 
 def parse_or_err(card, face_i=0):

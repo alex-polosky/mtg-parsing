@@ -1,6 +1,6 @@
 import json
 import os
-from mtg_parser.scryfall_card import ScryfallCard
+from utils.scryfall_card import ScryfallCard
 
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data'))
 DATA_FILE = os.path.join(DATA_DIR, 'scryfall', 'oracle-bulk.json')
