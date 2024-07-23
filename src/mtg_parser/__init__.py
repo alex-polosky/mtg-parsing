@@ -59,13 +59,13 @@ CONTRACTIONS = {
 
 RE_COMMENTS = re.compile(r' {0,1}\([^)]*\)')
 
-def get_sub_actions(text, is_inner=False):
+def get_sub_actions(text: str, is_inner=False):
     if is_inner:
-        subaction_string = '"'
-        action_string = "'"
-    else:
-        subaction_string = "'"
         action_string = '"'
+        subaction_string = "'"
+    else:
+        action_string = "'"
+        subaction_string = '"'
 
     subs = []
     each = text
@@ -79,7 +79,7 @@ def get_sub_actions(text, is_inner=False):
             token = '"'
         if token == "''":
             token = '"'
-        if subaction_string in token:
+        if action_string in token:
             if not is_sub:
                 is_sub = True
                 token = token[1:]
@@ -87,7 +87,7 @@ def get_sub_actions(text, is_inner=False):
                 is_sub = False
                 token = token[:-1]
                 if token:
-                    if token in f":,.{action_string}".split():
+                    if token in f":,.{subaction_string}".split():
                         if not sub:
                             sub.append('')
                         sub[-1] += token
@@ -105,7 +105,7 @@ def get_sub_actions(text, is_inner=False):
                 subs.append(joined)
                 sub = []
         if is_sub and token:
-            if token in f":,.{action_string}":
+            if token in f":,.{subaction_string}":
                 if not sub:
                     sub.append('')
                 sub[-1] += token
@@ -119,29 +119,53 @@ def get_sub_actions(text, is_inner=False):
 
     return [each] + subs
 
-def pre_massage(oracle_text):
+def pre_massage(card: ScryfallCard, oracle_text: str):
     # Get rid of comments
     text = RE_COMMENTS.sub('', oracle_text)
+
+    # Make card self referential
+    for i, face in enumerate(card.card_faces or []):
+        text = text.replace(face.name, f'~{i}')
+    text = text.replace(card.name, '~')
+
     return text
 
-def parse_text(text):
+def parse_text(text: str):
+    text = text.strip()
+
+    # Are there possibilities where the first letter should be capitalized?
+    text = text[0].lower() + text[1:]
+
     return {
         'to_parse': text
     }
 
-def split_text(text):
+def split_text(text: str):
     return [
         [sentence[:-1] if sentence.endswith('.') else sentence for sentence in line.split('. ')]
         for line in text.split('\n')
     ]
 
-def parse_sentences(sentences, is_inner=True):
+def split_effect(text: str):
+    split = text.split('—')[::-1]
+    if len(split) == 1:
+        split.append('')
+    oracle_and_cost, ability = split
+
+    split = oracle_and_cost.split(':')[::-1]
+    if len(split) == 1:
+        split.append('')
+    oracle, cost = split
+
+    return oracle, cost, ability
+
+def parse_sentences(sentences: list[str], is_inner=True):
     if is_inner:
-        subaction_string = '"'
-        action_string = "'"
-    else:
-        subaction_string = "'"
         action_string = '"'
+        subaction_string = "'"
+    else:
+        action_string = "'"
+        subaction_string = '"'
 
     parsed = {
         'ability': None,
@@ -151,20 +175,13 @@ def parse_sentences(sentences, is_inner=True):
     }
 
     for j, sentence in enumerate(sentences):
-        actions = get_sub_actions(sentence, is_inner)
-        sentences[j] = actions[0]
-        for action in actions[1:]:
-            sentences[j] = sentences[j].replace(f'{subaction_string}{action}{subaction_string}', f'SUBACTION_{len(parsed["subactions"])}')
-            parsed['subactions'].append(parse_sentences(split_text(action)[0], not is_inner))
+        subactions = get_sub_actions(sentence, is_inner)
+        sentences[j] = subactions[0]
+        for subaction in subactions[1:]:
+            sentences[j] = sentences[j].replace(f'{action_string}{subaction}{action_string}', f'SUBACTION_{len(parsed["subactions"])}')
+            parsed['subactions'].append(parse_sentences(split_text(subaction)[0], not is_inner))
 
-    prime = sentences[0]
-
-    split = prime.split('—')[::-1]
-    split = [x.strip() for x in split[0].split(':')[::-1] + split[1:]]
-    while len(split) < 3:
-        split.append('')
-
-    oracle, cost, ability = split
+    oracle, cost, ability = split_effect(sentences[0])
 
     if ability:
         parsed['ability'] = parse_text(ability)
@@ -188,7 +205,7 @@ def oracle_parser(card: ScryfallCard, face_i: int = 0):
     if not oracle_text:
         return {}
 
-    text = pre_massage(oracle_text)
+    text = pre_massage(card, oracle_text)
 
     lines = split_text(text)
 
