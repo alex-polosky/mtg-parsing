@@ -59,5 +59,4 @@ def main(set_code):
 if __name__ == '__main__':
     args = sys.argv
     set_code = args[-1]
-    set_code = 'blc'
     main(set_code)

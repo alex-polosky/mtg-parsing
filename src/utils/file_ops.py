@@ -3,7 +3,7 @@ import json
 import os
 import pickle
 from uuid import UUID
-from mtg_parser import ScryfallCard
+# from mtg_parser import ScryfallCard
 
 DATA_DIR = os.environ.get('DATA_DIR', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data'))
 
@@ -26,7 +26,7 @@ class DATA:
     ANALYSIS = os.path.join(DATA_DIR, 'analysis')
     CARD_JSON = os.path.join(DATA_DIR, 'cards')
 
-_ORACLE: dict[str, ScryfallCard] = None
+_ORACLE: dict[str, any] = None
 _SETS: dict[str, list[str]] = None
 
 def get_cards():
@@ -40,7 +40,7 @@ def get_cards():
         _ORACLE = pickle.loads(b)
     return list(_ORACLE.values())
 
-def get_cards_by_set(set):
+def get_cards_by_set(set: str):
     global _ORACLE, _SETS
     if not _SETS:
         with open(DATA.IDS_BY_SET) as f:

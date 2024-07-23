@@ -1,6 +1,10 @@
 import re
+from types import FrameType
 from nltk.tokenize import word_tokenize
+from utils import file_ops
 from .scryfall_card import ScryfallCard
+
+BASE_DIR = file_ops.DATA_DIR
 
 CONTRACTIONS = {
     "aren't": "are not",
@@ -216,3 +220,63 @@ def oracle_parser(card: ScryfallCard, face_i: int = 0):
         results.append(parsed)
 
     return results
+
+def add_ex(frame: FrameType, depth: int):
+    return {
+        f'code{depth}': f'{frame.f_code.co_filename.replace(BASE_DIR, '')}:{frame.f_code.co_name}:{frame.f_lineno}',
+    }
+
+def parse_or_err(card, face_i=0):
+    is_exception = False
+    try:
+        parsed = oracle_parser(card, face_i)
+    except Exception as ex:
+        parsed = {
+            'ex': f'[{type(ex).__name__}] {ex.args[0] if ex.args else ""}'
+        }
+
+        tb = ex.__traceback__
+        depth = 0
+        while tb:
+            parsed.update(add_ex(tb.tb_frame, depth))
+            depth += 1
+            tb = tb.tb_next
+
+        is_exception = True
+    return parsed, is_exception
+
+def create_parsed_obj(card: ScryfallCard):
+    obj = {
+        'oracle_id': str(card.oracle_id),
+        'face_id': 0,
+        'name': card.name,
+        'type_line': card.type_line,
+        'layout': card.layout,
+        'oracle_text': card.oracle_text,
+        'colors': card.colors,
+        'color_identity': card.color_identity,
+        'color_indicator': card.color_indicator,
+        'cmc': card.cmc,
+        'mana_cost': card.mana_cost,
+        'power': card.power,
+        'defense': card.defense,
+        'loyalty': card.loyalty,
+    }
+
+    if card.card_faces:
+        objs = []
+        for face_id, card_face in enumerate(card.card_faces):
+            objs.append(obj.copy())
+            objs[-1]['face_id'] = face_id + 1
+            for key in obj.keys():
+                if key in ('oracle_id', 'face_id'):
+                    continue
+                if (attr := getattr(card_face, key, None)):
+                    objs[-1][key] = attr
+            parsed, is_exception = parse_or_err(card, face_id + 1)
+            objs[-1]['parsed' if not is_exception else 'except'] = parsed
+        return objs
+    else:
+        parsed, is_exception = parse_or_err(card)
+        obj['parsed' if not is_exception else 'except'] = parsed
+        return [obj]
