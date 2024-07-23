@@ -15,7 +15,28 @@ IGNORE_NAMES = [
     "Invasion of Kaldheim // Pyre of the World Tree",
     "A-Cauldron Familiar",
 
-    "Boris Devilboon"
+    "Boris Devilboon",
+
+    # These have issues with subquotes
+    "Arlinn Kord // Arlinn, Embraced by the Moon",
+    "Bloodrage Alpha",
+    "Harold and Bob, First Numens",
+    "Huatli, Poet of Unity // Roar of the Fifth People",
+    "Koth of the Hammer",
+    "Light 'Em Up",
+    "Liliana of the Dark Realms",
+    "Mu Yanling, Sky Dancer",
+    "Nesting Dragon",
+    "Old-Growth Troll",
+    "Preston Garvey, Minuteman",
+    "Punctuate",
+    "Red-Hot Hottie",
+    "Reef Worm",
+    "Seething Skitter-Priest",
+    "Teferi's Talent",
+    "The Ever-Changing 'Dane",
+    "Toggo, Goblin Weaponsmith",
+    "Urza's Saga",
 ]
 
 CONTRACTIONS = {
@@ -94,12 +115,12 @@ def alter_oracle(card):
     card_name = card['name']
 
     for i, name in enumerate(card_name.split(' // ')):
-        to_parse = to_parse.replace(name[2:] if name.startswith('A-') else name, f'~{i if i else ""}')
+        to_parse = to_parse.replace(name[2:] if name.startswith('A-') else name, f'~{i + 1 if i else ""}')
 
     for i, name in enumerate(card_name.split(' // ')):
         if ',' in name:
             to_parse = to_parse.replace(
-                name.split(',')[0][2:] if name.startswith('A-') else name.split(',')[0], f'~{i if i else ""}'
+                name.split(',')[0][2:] if name.startswith('A-') else name.split(',')[0], f'~{i + 1 if i else ""}'
             )
 
     # These are specifics because why
@@ -167,6 +188,17 @@ def alter_oracle(card):
     return card
 
 
+def export(data, file_path):
+    with open(file_path, 'w') as f:
+        f.write('\n'.join(sorted(set([
+            line
+            for card in data
+            if card and not card['name'] in IGNORE_NAMES
+            for line in card['oracle']
+            if line
+        ]))))
+
+
 def main():
     with open(DATA_FILE_IN) as f:
         # data = [
@@ -177,13 +209,7 @@ def main():
         # ] +
         data = [alter_oracle(json.loads(x)) for x in f.read().split('\n') if x]
 
-    with open(DATA_FILE_OUT_ORACLE, 'w') as f:
-        f.write('\n'.join([
-            y
-            for x in data
-            if x and not x['name'] in IGNORE_NAMES
-            for y in x['oracle']
-        ]))
+    export(data, DATA_FILE_OUT_ORACLE)
 
     names = sorted(list(set([x['card'] for x in data if x and 'token' not in x['type'].split(' — ')[0].lower()])))
     with open(DATA_FILE_OUT_NAME, 'w') as f:

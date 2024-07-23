@@ -20,7 +20,7 @@
 
 ### For parsing
 
-
+1. parse_per_set SET_CODE
 
 ## Setup
 

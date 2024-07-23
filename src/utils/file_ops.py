@@ -23,10 +23,22 @@ class DATA:
     ORACLE_ONLY_ABILITY = os.path.join(DATA_DIR, 'out', 'oracle_gen_ability.txt')
     ORACLE_ONLY_COST = os.path.join(DATA_DIR, 'out', 'oracle_gen_cost.txt')
     ORACLE_ONLY_GEN = os.path.join(DATA_DIR, 'out', 'oracle_gen_text.txt')
+    ANALYSIS = os.path.join(DATA_DIR, 'analysis')
     CARD_JSON = os.path.join(DATA_DIR, 'cards')
 
 _ORACLE: dict[str, ScryfallCard] = None
 _SETS: dict[str, list[str]] = None
+
+def get_cards():
+    global _ORACLE
+    if not _ORACLE:
+        with open(DATA.BIN_ORACLE, 'rb') as f:
+            b = f.read()
+        with open(DATA.BIN_ORACLE + '.md5') as f:
+            m = f.read()
+        assert m == md5(b).hexdigest()
+        _ORACLE = pickle.loads(b)
+    return list(_ORACLE.values())
 
 def get_cards_by_set(set):
     global _ORACLE, _SETS

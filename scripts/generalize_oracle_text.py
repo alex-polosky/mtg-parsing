@@ -180,6 +180,8 @@ def generalize_oracle(oracle_text: str, count_i: int):
     # Treat ~1 as ~
     if '~1' in card:
         card = card.replace('~1', '~')
+    if '~2' in card:
+        card = card.replace('~2', '~')
 
     # This fixes some naming issues further down the line
     if 'Keeper of ~' in oracle_text:
